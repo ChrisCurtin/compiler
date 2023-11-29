@@ -5,18 +5,19 @@ plugins {
 }
 
 repositories {
-    // Use Maven Central for resolving dependencies.
     mavenCentral()
 }
 
 dependencies {
-    // Use JUnit Jupiter for testing.
+    implementation("org.slf4j:slf4j-api:2.0.9")
+    implementation("org.slf4j:slf4j-jdk14:2.0.9")
+    implementation("org.apache.commons:commons-lang3:3.14.0")
+
+
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.3")
+    testImplementation( "org.mockito:mockito-core:3.+")
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-
-    // This dependency is used by the application.
-    implementation("com.google.guava:guava:32.1.1-jre")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
