@@ -9,6 +9,9 @@ import java.util.Map;
 public enum ReservedWord {
     IF("if"),
     ELSE("else"),
+    WHILE("while"),
+    FOR("for"),
+    STRING("String"),
     INT("int");
 
 

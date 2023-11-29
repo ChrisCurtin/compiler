@@ -1,5 +1,6 @@
 package compiler.lexical_analysis;
 
+import compiler.common.Punctuation;
 import compiler.common.ReservedWord;
 
 public class LexicalAnalyzer {
@@ -14,7 +15,7 @@ public class LexicalAnalyzer {
     }
     public Token nextToken() {
         if (endOfFile) return new NoToken();
-        if (currentCharacter >= currentLine.length()) { //TODO - make sure this is correct
+        if (currentCharacter >= currentLine.length()) {
             getNextLine();
             if (endOfFile) return new NoToken();
         }
@@ -22,18 +23,17 @@ public class LexicalAnalyzer {
         skipWhiteSpace();
         if (endOfFile) return new NoToken();
         // now find any non-punctuation character sequence, which is then a token
+        Token nextToken = new NoToken();
         String token = getNextNonPunctuation();
         // if there is a token, figure out what we have
         if (!token.isEmpty()) {
-            return identifyRawToken(token);
+            nextToken = identifyRawToken(token);
         }
         else {
-            // to do - figure out what our punctuation is
+           Punctuation punctuation = getPunctuation();
+           if (punctuation != null) nextToken =  new PunctuationToken(punctuation);
         }
-        // if not check if we have a punctuation and process it
-        if (endOfFile) return new NoToken();
-
-        return new IdentifierToken("Unknown"); // TODO - this is the 'unknown' state until we're done developing
+        return nextToken;
     }
 
     protected void getNextLine() {
@@ -63,9 +63,15 @@ public class LexicalAnalyzer {
             if (currentCharacter > currentLine.length()) {
                 getNextLine();
             }
+            else if (getCurrentCharacter() == '/') {
+                if (getNextCharacter() == '/') { // line comment!
+                    currentCharacter = currentLine.length() + 1; // force the next line in the file
+                }
+            }
             else if (!Character.isWhitespace(getCurrentCharacter())) {
                 break;
-            } else { // TODO - here is where we catch line comments
+            }
+            else {
                 currentCharacter++;
             }
         }
@@ -79,6 +85,15 @@ public class LexicalAnalyzer {
             if (PUNCTUATION.contains(charToCompare)) {
                 break;
             }
+            else if ("\"".contentEquals(charToCompare)) {
+                int endOfStringCharacter = parseStringConstant(characterToConsume);
+                if (endOfStringCharacter > 0) {
+                    token.append(currentLine, characterToConsume, endOfStringCharacter+1);
+                    characterToConsume = endOfStringCharacter + 1;  // +1 to get the " character and move the position forward
+                    break;
+                }
+                // TODO - what to do if incomplete string? i.e. no ending double quote?
+            }
             else if (Character.isWhitespace(charToCompare.charAt(0))) {
                 break;
             } // TODO - here is where we catch the method calls on an object (a.get()) if the period is the first char, return it, otherwise put it back
@@ -91,10 +106,14 @@ public class LexicalAnalyzer {
         return token.toString();
     }
 
+    protected int parseStringConstant(int startingCharacter) {
+        return currentLine.indexOf("\"",startingCharacter+1 );
+    }
+
     protected Token identifyRawToken(String rawToken) {
         ReservedWord reservedWord = ReservedWord.toReservedWord(rawToken);
         if (reservedWord != null) return new ReservedWordToken(reservedWord);
-        if (Character.isDigit(rawToken.charAt(0))) { // TODO - this doesn't work for negatives!
+        if (Character.isDigit(rawToken.charAt(0))) { // Note - this doesn't work for negatives!
             try {
                 return new IntegerToken(Integer.parseInt(rawToken));
             }
@@ -102,7 +121,29 @@ public class LexicalAnalyzer {
                 return new LexicalError(rawToken, sourceFile.getLineNumber(), "Not a valid integer");
             }
         }
+        else if (rawToken.charAt(0) == '\"') {
+            return new StringToken(rawToken.substring(1, rawToken.length() -1));
+        }
         return new IdentifierToken(rawToken);
 
+    }
+
+    protected Punctuation getPunctuation() {
+        Punctuation punctuation = Punctuation.toPunctuation(String.valueOf(getCurrentCharacter()));
+        Punctuation finalPunctuation = punctuation;
+        if (punctuation != null) {
+            if (punctuation.isCanBeTwoCharacters()) {
+                Punctuation rightPunctuation = Punctuation.toPunctuation(String.valueOf(getNextCharacter()));
+                if (rightPunctuation != null) {
+                    finalPunctuation = Punctuation.combinePunctuation(punctuation, rightPunctuation);
+                    if (finalPunctuation != null)  {
+                        currentCharacter++; // consume the character
+                    }
+
+                }
+            }
+            currentCharacter++; // always consume the character
+        }
+        return finalPunctuation;
     }
 }
